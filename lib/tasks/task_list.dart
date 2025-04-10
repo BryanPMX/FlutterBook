@@ -6,7 +6,7 @@ import 'task_entry.dart';
 /// A widget that displays a list of tasks.
 ///
 /// This widget uses the [TaskModel] to render a scrollable list of tasks,
-/// supporting dismiss (delete) and tap-to-edit interactions.
+/// supporting dismiss (delete), edit, and completion toggle interactions.
 class TaskList extends StatelessWidget {
   const TaskList({super.key});
 
@@ -38,7 +38,6 @@ class TaskList extends StatelessWidget {
               ),
               direction: DismissDirection.endToStart,
               onDismissed: (_) {
-                print("🗑️ [TaskList] Deleting task: ${task.id}");
                 Provider.of<TaskModel>(context, listen: false).delete(task.id!);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -53,17 +52,22 @@ class TaskList extends StatelessWidget {
                 elevation: 3,
                 child: ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  leading: Icon(
-                    Icons.check_circle,
-                    color: task.isComplete ? Colors.green : Colors.grey,
+                  leading: Checkbox(
+                    value: task.isComplete,
+                    onChanged: (bool? value) {
+                      final updatedTask = task.copyWith(isComplete: value ?? false);
+                      Provider.of<TaskModel>(context, listen: false).update(updatedTask);
+                    },
                   ),
                   title: Text(
                     task.description,
-                    style: const TextStyle(fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      decoration: task.isComplete ? TextDecoration.lineThrough : null,
+                    ),
                   ),
                   subtitle: Text("Due on ${task.dueDate}"),
                   onTap: () {
-                    print("✏️ [TaskList] Editing task: ${task.id}");
                     Provider.of<TaskModel>(context, listen: false).setEntityBeingEdited(task);
                     Navigator.push(
                       context,

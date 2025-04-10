@@ -15,15 +15,29 @@ class _TaskEntryState extends State<TaskEntry> {
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _dueDateController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  bool _isComplete = false;
+  int? _currentLoadedTaskId;
 
   @override
   void initState() {
     super.initState();
-    final task = Provider.of<TaskModel>(context, listen: false).entityBeingEdited;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadInitialData());
+  }
+
+  /// Loads task data into the text controllers and checkbox.
+  void _loadInitialData() {
+    final taskModel = Provider.of<TaskModel>(context, listen: false);
+    final task = taskModel.entityBeingEdited;
     if (task != null) {
       _descriptionController.text = task.description;
       _dueDateController.text = task.dueDate;
-      print("📝 [TaskEntry] Loaded task for editing: $task");
+      _isComplete = task.isComplete;
+      _currentLoadedTaskId = task.id;
+    } else {
+      _descriptionController.clear();
+      _dueDateController.clear();
+      _isComplete = false;
+      _currentLoadedTaskId = null;
     }
   }
 
@@ -36,70 +50,96 @@ class _TaskEntryState extends State<TaskEntry> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Task Entry')),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: <Widget>[
-            ListTile(
-              leading: const Icon(Icons.description),
-              title: TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(hintText: 'Description'),
-                validator: (value) =>
-                (value == null || value.trim().isEmpty)
-                    ? 'Please enter a description'
-                    : null,
-              ),
+    return Consumer<TaskModel>(
+      builder: (context, taskModel, child) {
+        final task = taskModel.entityBeingEdited;
+        if (task != null && task.id != _currentLoadedTaskId) {
+          _descriptionController.text = task.description;
+          _dueDateController.text = task.dueDate;
+          _isComplete = task.isComplete;
+          _currentLoadedTaskId = task.id;
+        }
+
+        return Scaffold(
+          appBar: AppBar(title: const Text('Task Entry')),
+          body: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: <Widget>[
+                ListTile(
+                  leading: const Icon(Icons.description),
+                  title: TextFormField(
+                    controller: _descriptionController,
+                    decoration: const InputDecoration(hintText: 'Description'),
+                    validator: (value) =>
+                    (value == null || value.trim().isEmpty)
+                        ? 'Please enter a description'
+                        : null,
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.today),
+                  title: TextFormField(
+                    controller: _dueDateController,
+                    decoration: const InputDecoration(hintText: 'Due Date'),
+                    validator: (value) =>
+                    (value == null || value.trim().isEmpty)
+                        ? 'Please enter a due date'
+                        : null,
+                  ),
+                ),
+                CheckboxListTile(
+                  value: _isComplete,
+                  title: const Text("Mark as complete"),
+                  onChanged: (val) {
+                    setState(() {
+                      _isComplete = val ?? false;
+                    });
+                  },
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  child: const Text('Save'),
+                  onPressed: () => _saveTask(taskModel),
+                ),
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.today),
-              title: TextFormField(
-                controller: _dueDateController,
-                decoration: const InputDecoration(hintText: 'Due Date'),
-                validator: (value) =>
-                (value == null || value.trim().isEmpty)
-                    ? 'Please enter a due date'
-                    : null,
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              child: const Text('Save'),
-              onPressed: _saveTask,
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Future<void> _saveTask() async {
+  /// Saves or updates the task in the database and resets the form.
+  Future<void> _saveTask(TaskModel model) async {
     if (!_formKey.currentState!.validate()) return;
 
-    final taskModel = Provider.of<TaskModel>(context, listen: false);
-    final existing = taskModel.entityBeingEdited;
+    final existing = model.entityBeingEdited;
 
-    final Task task = Task(
+    final Task updatedTask = Task(
       id: existing?.id,
       description: _descriptionController.text.trim(),
       dueDate: _dueDateController.text.trim(),
-      isComplete: existing?.isComplete ?? false,
+      isComplete: _isComplete,
     );
 
     if (existing?.id == null) {
-      print("📥 [TaskEntry] Creating new task: $task");
-      await taskModel.create(task);
+      await model.create(updatedTask);
     } else {
-      print("🔄 [TaskEntry] Updating task: $task");
-      await taskModel.update(task);
+      await model.update(updatedTask);
     }
 
-    if (mounted) {
-      Navigator.pop(context);
-    }
+    if (!mounted) return;
+
+    model.setStackIndex(0);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Task saved"),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 }
 
