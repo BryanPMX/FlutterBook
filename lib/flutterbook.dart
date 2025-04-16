@@ -242,6 +242,9 @@ class _TasksScreenState extends State<TasksScreen> {
 /// The screen for managing voice notes in the FlutterBook app.
 ///
 /// Displays a list of recorded voice notes or the entry form based on model state.
+// ============================ Voice Notes Tab ============================
+
+/// The screen for managing voice notes in the FlutterBook app.
 class VoiceNotesScreen extends StatefulWidget {
   const VoiceNotesScreen({super.key});
 
@@ -266,7 +269,7 @@ class _VoiceNotesScreenState extends State<VoiceNotesScreen> {
         builder: (context, model, child) {
           return IndexedStack(
             index: model.stackIndex,
-            children: const [
+            children: [
               VoiceNotesList(),
               VoiceNotesEntry(),
             ],
@@ -277,17 +280,17 @@ class _VoiceNotesScreenState extends State<VoiceNotesScreen> {
         builder: (context, model, child) {
           return model.stackIndex == 0
               ? FloatingActionButton(
-            tooltip: "Add Voice Note",
             child: const Icon(Icons.mic, color: Colors.white),
             onPressed: () {
-              final newNote = VoiceNote(
-                id: null,
-                title: "New Recording",
-                filePath: "",
-                duration: "0s", // <-- Add this line
-                createdAt: DateTime.now(),
+              model.setEntityBeingEdited(
+                VoiceNote(
+                  id: null,
+                  title: '',
+                  filePath: '',
+                  duration: '',
+                  createdAt: DateTime.now(),
+                ),
               );
-              model.setEntityBeingEdited(newNote);
               model.setStackIndex(1);
             },
           )
@@ -297,3 +300,4 @@ class _VoiceNotesScreenState extends State<VoiceNotesScreen> {
     );
   }
 }
+
