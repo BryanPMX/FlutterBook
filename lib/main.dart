@@ -4,9 +4,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'flutterbook.dart';
+
+// Models
 import 'notes/notes_model.dart';
 import 'tasks/task_model.dart';
-import 'contacts/contacts_model.dart'; // ✅ Added ContactsModel import
+import 'contacts/contacts_model.dart';
+import 'voice notes/voice_notes_model.dart'; // ✅ New voice notes model
 
 /// The entry point of the FlutterBook application.
 ///
@@ -26,12 +29,10 @@ class FlutterBookApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // Provide the NotesModel to the widget tree
         ChangeNotifierProvider(create: (context) => NotesModel()),
-        // Provide the TasksModel to the widget tree
         ChangeNotifierProvider(create: (context) => TaskModel()),
-        // Provide the ContactsModel to the widget tree
         ChangeNotifierProvider(create: (context) => ContactsModel()),
+        ChangeNotifierProvider(create: (context) => VoiceNotesModel()), // ✅ Voice notes provider
       ],
       child: MaterialApp(
         title: 'FlutterBook',
@@ -44,3 +45,4 @@ class FlutterBookApp extends StatelessWidget {
     );
   }
 }
+

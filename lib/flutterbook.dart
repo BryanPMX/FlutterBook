@@ -1,7 +1,6 @@
 // The University of Texas at El Paso
 // Bryan Perez
 
-import 'dart:io' show stdout;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -26,9 +25,15 @@ import 'contacts/contacts_list.dart';
 import 'contacts/contacts_model.dart';
 import 'contacts/contacts_db_worker.dart';
 
+// Voice Notes
+import 'voice notes/voice_note.dart';
+import 'voice notes/voice_notes_entry.dart';
+import 'voice notes/voice_notes_list.dart';
+import 'voice notes/voice_notes_model.dart';
+import 'voice notes/voice_notes_db_worker.dart';
+
 /// The main screen of the FlutterBook app.
-///
-/// Provides a tabbed interface for Appointments, Contacts, Notes, and Tasks.
+/// Provides a tabbed interface for Appointments, Contacts, Notes, Tasks, and Voice Notes.
 class FlutterBook extends StatefulWidget {
   const FlutterBook({super.key});
 
@@ -42,20 +47,17 @@ class FlutterBookState extends State<FlutterBook> with SingleTickerProviderState
   @override
   void initState() {
     super.initState();
-    stdout.writeln("## FlutterBookState.initState()");
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this); // Now 5 tabs
   }
 
   @override
   void dispose() {
-    stdout.writeln("## FlutterBookState.dispose()");
     _tabController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    stdout.writeln("## FlutterBook.build()");
     return Scaffold(
       appBar: AppBar(
         title: const Text("FlutterBook"),
@@ -66,6 +68,7 @@ class FlutterBookState extends State<FlutterBook> with SingleTickerProviderState
             Tab(icon: Icon(Icons.contacts), text: "Contacts"),
             Tab(icon: Icon(Icons.note), text: "Notes"),
             Tab(icon: Icon(Icons.assignment_turned_in), text: "Tasks"),
+            Tab(icon: Icon(Icons.mic), text: "Voice Notes"),
           ],
         ),
       ),
@@ -76,18 +79,20 @@ class FlutterBookState extends State<FlutterBook> with SingleTickerProviderState
           ContactsScreen(),
           NotesScreen(),
           TasksScreen(),
+          VoiceNotesScreen(),
         ],
       ),
     );
   }
 }
 
-/// The screen for the Contacts tab.
+// ============================ Contacts Tab ============================
+
 class ContactsScreen extends StatefulWidget {
   const ContactsScreen({super.key});
 
   @override
-  _ContactsScreenState createState() => _ContactsScreenState();
+  State<ContactsScreen> createState() => _ContactsScreenState();
 }
 
 class _ContactsScreenState extends State<ContactsScreen> {
@@ -119,13 +124,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
               ? FloatingActionButton(
             child: const Icon(Icons.add, color: Colors.white),
             onPressed: () {
-              final newContact = Contact(
-                id: null,
-                name: "New Contact",
-                email: "",
-                phone: "",
-                notes: "",
-              );
+              final newContact = Contact(id: null, name: "New Contact", email: "", phone: "", notes: "");
               model.setEntityBeingEdited(newContact);
               model.setStackIndex(1);
             },
@@ -137,12 +136,13 @@ class _ContactsScreenState extends State<ContactsScreen> {
   }
 }
 
-/// The screen for the Notes tab, displaying either a list view or an entry view.
+// ============================ Notes Tab ============================
+
 class NotesScreen extends StatefulWidget {
   const NotesScreen({super.key});
 
   @override
-  _NotesScreenState createState() => _NotesScreenState();
+  State<NotesScreen> createState() => _NotesScreenState();
 }
 
 class _NotesScreenState extends State<NotesScreen> {
@@ -174,12 +174,7 @@ class _NotesScreenState extends State<NotesScreen> {
               ? FloatingActionButton(
             child: const Icon(Icons.add, color: Colors.white),
             onPressed: () {
-              final newNote = Note(
-                id: null,
-                title: "New Note",
-                content: "Enter content...",
-                color: "red",
-              );
+              final newNote = Note(id: null, title: "New Note", content: "Enter content...", color: "red");
               model.setEntityBeingEdited(newNote);
               model.setColor("red");
               model.setStackIndex(1);
@@ -192,12 +187,13 @@ class _NotesScreenState extends State<NotesScreen> {
   }
 }
 
-/// The screen for the Tasks tab, displaying either a list view or an entry view.
+// ============================ Tasks Tab ============================
+
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key});
 
   @override
-  _TasksScreenState createState() => _TasksScreenState();
+  State<TasksScreen> createState() => _TasksScreenState();
 }
 
 class _TasksScreenState extends State<TasksScreen> {
@@ -229,13 +225,69 @@ class _TasksScreenState extends State<TasksScreen> {
               ? FloatingActionButton(
             child: const Icon(Icons.add, color: Colors.white),
             onPressed: () {
-              final newTask = Task(
-                id: null,
-                description: "New Task",
-                dueDate: "MM/DD/YYYY",
-                isComplete: false,
-              );
+              final newTask = Task(id: null, description: "New Task", dueDate: "MM/DD/YYYY", isComplete: false);
               model.setEntityBeingEdited(newTask);
+              model.setStackIndex(1);
+            },
+          )
+              : const SizedBox.shrink();
+        },
+      ),
+    );
+  }
+}
+
+// ============================ Voice Notes Tab ============================
+
+/// The screen for managing voice notes in the FlutterBook app.
+///
+/// Displays a list of recorded voice notes or the entry form based on model state.
+class VoiceNotesScreen extends StatefulWidget {
+  const VoiceNotesScreen({super.key});
+
+  @override
+  State<VoiceNotesScreen> createState() => _VoiceNotesScreenState();
+}
+
+class _VoiceNotesScreenState extends State<VoiceNotesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<VoiceNotesModel>(context, listen: false)
+          .loadData("voiceNotes", VoiceNotesDBWorker.db);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Consumer<VoiceNotesModel>(
+        builder: (context, model, child) {
+          return IndexedStack(
+            index: model.stackIndex,
+            children: const [
+              VoiceNotesList(),
+              VoiceNotesEntry(),
+            ],
+          );
+        },
+      ),
+      floatingActionButton: Consumer<VoiceNotesModel>(
+        builder: (context, model, child) {
+          return model.stackIndex == 0
+              ? FloatingActionButton(
+            tooltip: "Add Voice Note",
+            child: const Icon(Icons.mic, color: Colors.white),
+            onPressed: () {
+              final newNote = VoiceNote(
+                id: null,
+                title: "New Recording",
+                filePath: "",
+                duration: "0s", // <-- Add this line
+                createdAt: DateTime.now(),
+              );
+              model.setEntityBeingEdited(newNote);
               model.setStackIndex(1);
             },
           )
