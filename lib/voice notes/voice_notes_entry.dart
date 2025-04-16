@@ -8,7 +8,6 @@ import 'voice_notes_model.dart';
 import 'voice_notes_db_worker.dart';
 import 'package:flutter/scheduler.dart';
 
-/// Entry screen for creating or editing voice notes in FlutterBook.
 class VoiceNotesEntry extends StatefulWidget {
   const VoiceNotesEntry({super.key});
 
@@ -19,7 +18,6 @@ class VoiceNotesEntry extends StatefulWidget {
 class _VoiceNotesEntryState extends State<VoiceNotesEntry> with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _titleController = TextEditingController();
-
   final RecorderController _recorderController = RecorderController();
   final PlayerController _playerController = PlayerController();
 
@@ -28,17 +26,15 @@ class _VoiceNotesEntryState extends State<VoiceNotesEntry> with TickerProviderSt
   String? _recordedPath;
   String _duration = '';
   int? _loadedNoteId;
-  late final Stopwatch _stopwatch;
-  late final Ticker _ticker;
-  Duration _elapsed = Duration.zero;
+
+  int _recordingSeconds = 0;
+  int _playbackSeconds = 0;
+  Ticker? _recordingTicker;
+  Ticker? _playbackTicker;
 
   @override
   void initState() {
     super.initState();
-    _stopwatch = Stopwatch();
-    _ticker = createTicker((_) {
-      setState(() => _elapsed = _stopwatch.elapsed);
-    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadInitialData());
   }
 
@@ -46,16 +42,22 @@ class _VoiceNotesEntryState extends State<VoiceNotesEntry> with TickerProviderSt
     final model = Provider.of<VoiceNotesModel>(context, listen: false);
     final note = model.entityBeingEdited;
 
-    if (note != null && note.id != _loadedNoteId) {
-      _titleController.text = note.title;
-      _recordedPath = note.filePath;
-      _duration = note.duration;
-      _loadedNoteId = note.id;
-    } else {
+    if (note == null || note.id == null) {
+      // New note: clear everything
       _titleController.clear();
       _recordedPath = null;
       _duration = '';
       _loadedNoteId = null;
+      _recordingSeconds = 0;
+      _playbackSeconds = 0;
+    } else if (note.id != _loadedNoteId) {
+      // Editing existing note
+      _titleController.text = note.title;
+      _recordedPath = note.filePath;
+      _duration = note.duration;
+      _loadedNoteId = note.id;
+      _recordingSeconds = 0;
+      _playbackSeconds = 0;
     }
   }
 
@@ -64,27 +66,46 @@ class _VoiceNotesEntryState extends State<VoiceNotesEntry> with TickerProviderSt
     _titleController.dispose();
     _recorderController.dispose();
     _playerController.stopPlayer();
-    _ticker.dispose();
+    _recordingTicker?.dispose();
+    _playbackTicker?.dispose();
     super.dispose();
   }
 
-  void _startTimer() {
-    _elapsed = Duration.zero;
-    _stopwatch.reset();
-    _stopwatch.start();
-    _ticker.start();
+  void _startRecordingTimer() {
+    _recordingSeconds = 0;
+    _recordingTicker = createTicker((_) {
+      setState(() {
+        _recordingSeconds++;
+      });
+    })..start();
   }
 
-  void _stopTimer() {
-    _stopwatch.stop();
-    _ticker.stop();
+  void _stopRecordingTimer() {
+    _recordingTicker?.stop();
+    _recordingTicker?.dispose();
+    _recordingTicker = null;
+  }
+
+  void _startPlaybackTimer() {
+    _playbackSeconds = 0;
+    _playbackTicker = createTicker((_) {
+      setState(() {
+        _playbackSeconds++;
+      });
+    })..start();
+  }
+
+  void _stopPlaybackTimer() {
+    _playbackTicker?.stop();
+    _playbackTicker?.dispose();
+    _playbackTicker = null;
   }
 
   Future<void> _handleRecording() async {
     if (_isRecording) {
       final result = await AudioUtil.stopRecording();
       _recorderController.reset();
-      _stopTimer();
+      _stopRecordingTimer();
       setState(() {
         _recordedPath = result['filePath'];
         _duration = result['duration'] ?? '';
@@ -95,7 +116,7 @@ class _VoiceNotesEntryState extends State<VoiceNotesEntry> with TickerProviderSt
       final path = '${directory.path}/voice_${DateTime.now().millisecondsSinceEpoch}.aac';
       await AudioUtil.startRecording(path);
       _recorderController.record();
-      _startTimer();
+      _startRecordingTimer();
       setState(() {
         _recordedPath = path;
         _isRecording = true;
@@ -108,17 +129,17 @@ class _VoiceNotesEntryState extends State<VoiceNotesEntry> with TickerProviderSt
 
     if (_isPlaying) {
       await _playerController.stopPlayer();
-      _stopTimer();
+      _stopPlaybackTimer();
       setState(() => _isPlaying = false);
     } else {
       await _playerController.preparePlayer(path: _recordedPath!);
       await _playerController.startPlayer();
-      _startTimer();
+      _startPlaybackTimer();
       setState(() => _isPlaying = true);
 
       _playerController.onPlayerStateChanged.listen((state) {
         if (state == PlayerState.stopped) {
-          _stopTimer();
+          _stopPlaybackTimer();
           setState(() => _isPlaying = false);
         }
       });
@@ -146,13 +167,17 @@ class _VoiceNotesEntryState extends State<VoiceNotesEntry> with TickerProviderSt
     }
 
     await model.loadData("voiceNotes", VoiceNotesDBWorker.db);
-    model.setStackIndex(0);
+    model.clearEntityBeingEdited();
 
     if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Voice note saved"), backgroundColor: Colors.green),
     );
+
+    Navigator.pop(context);
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -166,8 +191,7 @@ class _VoiceNotesEntryState extends State<VoiceNotesEntry> with TickerProviderSt
             TextFormField(
               controller: _titleController,
               decoration: const InputDecoration(labelText: "Title"),
-              validator: (value) =>
-              value == null || value.trim().isEmpty ? 'Title is required' : null,
+              validator: (value) => value == null || value.trim().isEmpty ? 'Title is required' : null,
             ),
             const SizedBox(height: 20),
             _isRecording
@@ -188,14 +212,14 @@ class _VoiceNotesEntryState extends State<VoiceNotesEntry> with TickerProviderSt
                   color: _isRecording ? Colors.red : Colors.blue),
               title: Text(_isRecording ? "Stop Recording" : "Start Recording"),
               onTap: _handleRecording,
-              trailing: Text("${_elapsed.inSeconds}s"),
+              trailing: Text("${_recordingSeconds}s"),
             ),
             ListTile(
               leading: Icon(_isPlaying ? Icons.stop : Icons.play_arrow,
                   color: _isPlaying ? Colors.red : Colors.blue),
               title: Text(_isPlaying ? "Stop Playback" : "Play Recording"),
               onTap: _handlePlayback,
-              trailing: Text("${_elapsed.inSeconds}s"),
+              trailing: Text("${_playbackSeconds}s"),
             ),
             AudioFileWaveforms(
               size: const Size(double.infinity, 70.0),

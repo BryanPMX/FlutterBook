@@ -271,7 +271,6 @@ class _VoiceNotesScreenState extends State<VoiceNotesScreen> {
             index: model.stackIndex,
             children: [
               VoiceNotesList(),
-              VoiceNotesEntry(),
             ],
           );
         },
@@ -281,18 +280,23 @@ class _VoiceNotesScreenState extends State<VoiceNotesScreen> {
           return model.stackIndex == 0
               ? FloatingActionButton(
             child: const Icon(Icons.mic, color: Colors.white),
-            onPressed: () {
-              model.setEntityBeingEdited(
-                VoiceNote(
-                  id: null,
-                  title: '',
-                  filePath: '',
-                  duration: '',
-                  createdAt: DateTime.now(),
-                ),
-              );
-              model.setStackIndex(1);
-            },
+              onPressed: () {
+                model.clearEntityBeingEdited();
+                model.setEntityBeingEdited(
+                  VoiceNote(
+                    id: null,
+                    title: '',
+                    filePath: '',
+                    duration: '',
+                    createdAt: DateTime.now(),
+                  ),
+                );
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const VoiceNotesEntry()),
+                );
+              }
           )
               : const SizedBox.shrink();
         },
