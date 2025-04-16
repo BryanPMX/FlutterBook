@@ -19,6 +19,13 @@ import 'tasks/task_list.dart';
 import 'tasks/task_model.dart';
 import 'tasks/task_db_worker.dart';
 
+// Contacts
+import 'contacts/contact.dart';
+import 'contacts/contacts_entry.dart';
+import 'contacts/contacts_list.dart';
+import 'contacts/contacts_model.dart';
+import 'contacts/contacts_db_worker.dart';
+
 /// The main screen of the FlutterBook app.
 ///
 /// Provides a tabbed interface for Appointments, Contacts, Notes, and Tasks.
@@ -66,10 +73,65 @@ class FlutterBookState extends State<FlutterBook> with SingleTickerProviderState
         controller: _tabController,
         children: const [
           Center(child: Text("Appointments")),
-          Center(child: Text("Contacts")),
+          ContactsScreen(),
           NotesScreen(),
           TasksScreen(),
         ],
+      ),
+    );
+  }
+}
+
+/// The screen for the Contacts tab.
+class ContactsScreen extends StatefulWidget {
+  const ContactsScreen({super.key});
+
+  @override
+  _ContactsScreenState createState() => _ContactsScreenState();
+}
+
+class _ContactsScreenState extends State<ContactsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<ContactsModel>(context, listen: false).loadData("contacts", ContactsDBWorker.db);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Consumer<ContactsModel>(
+        builder: (context, model, child) {
+          return IndexedStack(
+            index: model.stackIndex,
+            children: const [
+              ContactsList(),
+              ContactsEntry(),
+            ],
+          );
+        },
+      ),
+      floatingActionButton: Consumer<ContactsModel>(
+        builder: (context, model, child) {
+          return model.stackIndex == 0
+              ? FloatingActionButton(
+            child: const Icon(Icons.add, color: Colors.white),
+            onPressed: () {
+              final newContact = Contact(
+                id: null,
+                name: "New Contact",
+                email: "",
+                phone: "",
+                notes: "",
+              );
+              model.setEntityBeingEdited(newContact);
+              model.setStackIndex(1);
+            },
+          )
+              : const SizedBox.shrink();
+        },
       ),
     );
   }
@@ -94,7 +156,6 @@ class _NotesScreenState extends State<NotesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    stdout.writeln("## NotesScreen.build()");
     return Scaffold(
       body: Consumer<NotesModel>(
         builder: (context, model, child) {
@@ -113,25 +174,15 @@ class _NotesScreenState extends State<NotesScreen> {
               ? FloatingActionButton(
             child: const Icon(Icons.add, color: Colors.white),
             onPressed: () {
-              try {
-                final newNote = Note(
-                  id: null,
-                  title: "New Note",
-                  content: "Enter content...",
-                  color: "red",
-                );
-                model.setEntityBeingEdited(newNote);
-                model.setColor("red");
-                model.setStackIndex(1);
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    backgroundColor: Colors.red,
-                    duration: const Duration(seconds: 3),
-                    content: Text("Failed to create new note: $e"),
-                  ),
-                );
-              }
+              final newNote = Note(
+                id: null,
+                title: "New Note",
+                content: "Enter content...",
+                color: "red",
+              );
+              model.setEntityBeingEdited(newNote);
+              model.setColor("red");
+              model.setStackIndex(1);
             },
           )
               : const SizedBox.shrink();
@@ -160,7 +211,6 @@ class _TasksScreenState extends State<TasksScreen> {
 
   @override
   Widget build(BuildContext context) {
-    stdout.writeln("## TasksScreen.build()");
     return Scaffold(
       body: Consumer<TaskModel>(
         builder: (context, model, child) {
@@ -179,24 +229,14 @@ class _TasksScreenState extends State<TasksScreen> {
               ? FloatingActionButton(
             child: const Icon(Icons.add, color: Colors.white),
             onPressed: () {
-              try {
-                final newTask = Task(
-                  id: null,
-                  description: "New Task",
-                  dueDate: "MM/DD/YYYY",
-                  isComplete: false,
-                );
-                model.setEntityBeingEdited(newTask);
-                model.setStackIndex(1);
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    backgroundColor: Colors.red,
-                    duration: const Duration(seconds: 3),
-                    content: Text("Failed to create new task: $e"),
-                  ),
-                );
-              }
+              final newTask = Task(
+                id: null,
+                description: "New Task",
+                dueDate: "MM/DD/YYYY",
+                isComplete: false,
+              );
+              model.setEntityBeingEdited(newTask);
+              model.setStackIndex(1);
             },
           )
               : const SizedBox.shrink();

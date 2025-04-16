@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'flutterbook.dart';
 import 'notes/notes_model.dart';
-import 'tasks/task_model.dart'; // Ensure this path is correct based on your project structure
+import 'tasks/task_model.dart';
+import 'contacts/contacts_model.dart'; // ✅ Added ContactsModel import
 
 /// The entry point of the FlutterBook application.
 ///
@@ -29,7 +30,8 @@ class FlutterBookApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => NotesModel()),
         // Provide the TasksModel to the widget tree
         ChangeNotifierProvider(create: (context) => TaskModel()),
-        // Add more providers for other models (e.g., ContactsModel) as needed
+        // Provide the ContactsModel to the widget tree
+        ChangeNotifierProvider(create: (context) => ContactsModel()),
       ],
       child: MaterialApp(
         title: 'FlutterBook',
@@ -42,4 +44,3 @@ class FlutterBookApp extends StatelessWidget {
     );
   }
 }
-
